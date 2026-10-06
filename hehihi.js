@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         Auto Vote 5 Sao - Trường Học Hạnh Phúc
 // @namespace    https://github.com/thang1834
-// @version      4.2.0
-// @description  Script tự động hóa hỗ trợ khảo sát/bình chọn 5 sao cho cổng Trường Học Hạnh Phúc (treemvietnam.net.vn): Tự động mở form đánh giá, tích 5 sao toàn bộ tiêu chí, phát hiện xác thực Captcha, nộp phiếu và dọn dẹp dữ liệu phiên. Phục vụ mục đích học tập & nghiên cứu Userscript.
+// @version      4.3.0
+// @description  Script tự động hóa hỗ trợ khảo sát/bình chọn 5 sao cho cổng Trường Học Hạnh Phúc (treemvietnam.net.vn): Tự động mở form đánh giá, tích 5 sao toàn bộ tiêu chí, phát hiện xác thực Captcha, nộp phiếu, tự động chọn tài khoản Google OAuth và dọn dẹp dữ liệu phiên. Phục vụ mục đích học tập & nghiên cứu Userscript.
 // @author       thang1834 (https://github.com/thang1834)
 // @homepageURL  https://github.com/thang1834/auto-vote-happy-school
 // @supportURL   https://github.com/thang1834/auto-vote-happy-school/issues
 // @license      MIT
 // @match        https://treemvietnam.net.vn/truong-hoc-hanh-phuc/*
+// @match        https://accounts.google.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=treemvietnam.net.vn
 // @run-at       document-idle
 // @grant        none
@@ -22,6 +23,7 @@
  * MỤC ĐÍCH NGHIÊN CỨU:
  * - Tìm hiểu cơ chế thao tác DOM nâng cao qua Userscript trong Tampermonkey.
  * - Xử lý tương tác giữa môi trường Sandbox Userscript và Window Context gốc của trang.
+ * - Tự động hóa chọn tài khoản Google OAuth khi có nhiều tài khoản đăng nhập trên trình duyệt.
  * - Lắng nghe phản hồi từ Cloudflare Turnstile token client-side mà không can thiệp trái phép.
  * - Quản trị và dọn dẹp toàn diện Client Storage (Cookies, Cache, LocalStorage, IndexedDB).
  * =========================================================================================
@@ -35,7 +37,7 @@
      * Người dùng có thể điều chỉnh các giá trị bên dưới để phù hợp với tốc độ mạng và nhu cầu.
      */
     const CONFIG = {
-        // [1] Dọn dẹp dữ liệu: Tự động xóa Cookie, LocalStorage, SessionStorage khi tải trang
+        // [1] Dọn dẹp dữ liệu: Tự động xóa Cookie, LocalStorage, SessionStorage khi tải trang treemvietnam
         AUTO_CLEAR_SITE_DATA: true,
 
         // [2] Mở popup: Tự động nhấn nút "Bình chọn ngay" sau khi truy cập trang chi tiết trường học
@@ -44,22 +46,33 @@
         // [3] Đăng nhập Google: Tự động kích hoạt chuyển hướng Google Login sau khi tick Captcha đăng nhập thành công
         AUTO_LOGIN_GOOGLE: true,
 
-        // [4] Gửi bình chọn: Tự động nhấn nút gửi xác nhận sau khi Captcha ở form vote đã hoàn tất
+        // [4] Tự động chọn tài khoản Google: Tự động click chọn tài khoản trong cửa sổ popup accounts.google.com
+        AUTO_SELECT_GOOGLE_ACCOUNT: true,
+
+        // [5] Email Google chỉ định (Tùy chọn):
+        // - Để trống '' : Tự động chọn tài khoản đầu tiên trong danh sách
+        // - Điền email (ví dụ 'vidu@gmail.com') : Script sẽ ưu tiên tìm và click đúng tài khoản này
+        TARGET_GOOGLE_ACCOUNT_EMAIL: '',
+
+        // [6] Gửi bình chọn: Tự động nhấn nút gửi xác nhận sau khi Captcha ở form vote đã hoàn tất
         AUTO_SUBMIT_AFTER_CAPTCHA: true,
 
-        // [5] Làm mới trang: Tự động tải lại trang (F5) sau khi gửi bình chọn thành công để chuẩn bị cho lượt tiếp theo
+        // [7] Làm mới trang: Tự động tải lại trang (F5) sau khi gửi bình chọn thành công để chuẩn bị cho lượt tiếp theo
         AUTO_REFRESH_AFTER_VOTE: true,
 
-        // [6] Thời gian trễ (ms) trước khi tự động ấn mở popup bình chọn lúc mới tải trang
+        // [8] Thời gian trễ (ms) trước khi tự động ấn mở popup bình chọn lúc mới tải trang
         DELAY_OPEN_MS: 1200,
 
-        // [7] Thời gian chờ an toàn (ms) sau khi Captcha vote tick xanh để hệ thống backend đồng bộ token trước khi submit
+        // [9] Thời gian chờ (ms) sau khi popup tài khoản Google mở ra trước khi tự động click chọn tài khoản
+        DELAY_SELECT_GOOGLE_ACCOUNT_MS: 500,
+
+        // [10] Thời gian chờ an toàn (ms) sau khi Captcha vote tick xanh để hệ thống backend đồng bộ token trước khi submit
         DELAY_SUBMIT_VOTE_MS: 2000,
 
-        // [8] Thời gian trễ (ms) sau khi popup nộp thành công trước khi tiến hành reload lại trang
+        // [11] Thời gian trễ (ms) sau khi popup nộp thành công trước khi tiến hành reload lại trang
         DELAY_REFRESH_MS: 1500,
 
-        // [9] Chu kỳ quét trạng thái của Master Watcher (ms)
+        // [12] Chu kỳ quét trạng thái của Master Watcher (ms)
         WATCHER_INTERVAL_MS: 350
     };
 
@@ -69,6 +82,112 @@
     let hasClickedLogin = false; // Ngăn chặn việc click nút đăng nhập Google nhiều lần lặp lại
     let hasSubmitted = false;    // Ngăn chặn việc click nút gửi bình chọn lặp lại trong cùng một phiên
     let statusBanner = null;     // Node phần tử DOM chứa thông báo trạng thái nổi ở góc màn hình
+
+    // =========================================================================================
+    // PHẦN 1: TỰ ĐỘNG HÓA CHỌN TÀI KHOẢN GOOGLE OAUTH (CHẠY TRÊN ACCOUNTS.GOOGLE.COM)
+    // =========================================================================================
+
+    /**
+     * Tự động nhận diện và click chọn tài khoản Google trong cửa sổ popup OAuth.
+     * CƠ CHẾ BẢO MẬT: Chỉ kích hoạt nếu URL đích hoặc document.referrer có liên kết tới 'treemvietnam.net.vn'
+     * để tuyệt đối không ảnh hưởng đến các phiên đăng nhập Google khác của người dùng.
+     */
+    function handleGoogleOAuthChooser() {
+        if (!CONFIG.AUTO_SELECT_GOOGLE_ACCOUNT) return;
+
+        const currentUrl = window.location.href;
+        const decodedUrl = decodeURIComponent(currentUrl);
+        const referrer = document.referrer ? decodeURIComponent(document.referrer) : '';
+
+        // Kiểm tra nghiêm ngặt: Chỉ can thiệp nếu luồng OAuth này xuất phát từ website treemvietnam
+        const isFromTargetSite = decodedUrl.includes('treemvietnam.net.vn') || referrer.includes('treemvietnam.net.vn');
+        if (!isFromTargetSite) {
+            // Không phải luồng đăng nhập của cuộc thi => Lập tức thoát để bảo vệ quyền riêng tư
+            return;
+        }
+
+        console.log('[Auto-Vote OAuth] Đã phát hiện cửa sổ xác thực Google OAuth từ treemvietnam.net.vn');
+
+        let attempts = 0;
+        const maxAttempts = 35; // Thử tối đa trong ~10.5 giây (35 * 300ms)
+
+        const selectInterval = setInterval(() => {
+            attempts++;
+
+            // Danh sách các bộ chọn CSS (Selector) phổ biến của giao diện Google Account Chooser
+            const accountSelectors = [
+                'li[data-identifier]',
+                'div[data-identifier]',
+                'div[data-email]',
+                'div.vdElof',
+                'div.J160Sc',
+                '[role="link"][data-email]',
+                'div[jsname="rwl3qc"]',
+                'ul[role="list"] > li',
+                '[data-authuser]'
+            ];
+
+            let targetElement = null;
+
+            // Nếu người dùng có cấu hình email chỉ định cụ thể
+            if (CONFIG.TARGET_GOOGLE_ACCOUNT_EMAIL && CONFIG.TARGET_GOOGLE_ACCOUNT_EMAIL.trim() !== '') {
+                const searchEmail = CONFIG.TARGET_GOOGLE_ACCOUNT_EMAIL.trim().toLowerCase();
+                
+                // 1. Tìm theo thuộc tính data-identifier hoặc data-email
+                targetElement = document.querySelector(`[data-identifier*="${searchEmail}"], [data-email*="${searchEmail}"]`);
+
+                // 2. Nếu chưa thấy, duyệt qua tất cả các item tài khoản để tìm text chứa email
+                if (!targetElement) {
+                    const allItems = document.querySelectorAll(accountSelectors.join(','));
+                    for (const item of allItems) {
+                        if (item.textContent.toLowerCase().includes(searchEmail)) {
+                            targetElement = item;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // Nếu không chỉ định email cụ thể, chọn tài khoản đầu tiên xuất hiện trong danh sách
+                for (const selector of accountSelectors) {
+                    const found = document.querySelector(selector);
+                    if (found && isElementVisible(found)) {
+                        targetElement = found;
+                        break;
+                    }
+                }
+            }
+
+            // Nếu đã tìm thấy tài khoản mục tiêu
+            if (targetElement) {
+                clearInterval(selectInterval);
+                console.log('[Auto-Vote OAuth] Đã tìm thấy tài khoản Google mục tiêu:', targetElement);
+
+                setTimeout(() => {
+                    try {
+                        // Kích hoạt chuỗi sự kiện click đầy đủ để mô phỏng tương tác người dùng
+                        targetElement.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+                        targetElement.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+                        targetElement.click();
+                        console.log('[Auto-Vote OAuth] Đã tự động click chọn tài khoản thành công!');
+                    } catch (err) {
+                        console.warn('[Auto-Vote OAuth] Lỗi khi click tài khoản:', err);
+                    }
+                }, CONFIG.DELAY_SELECT_GOOGLE_ACCOUNT_MS);
+
+                return;
+            }
+
+            // Nếu quá thời gian tối đa mà không thấy danh sách tài khoản, tự hủy vòng lặp
+            if (attempts >= maxAttempts) {
+                clearInterval(selectInterval);
+                console.log('[Auto-Vote OAuth] Đã hết thời gian chờ danh sách tài khoản Google.');
+            }
+        }, 300);
+    }
+
+    // =========================================================================================
+    // PHẦN 2: CÁC TIỆN ÍCH GIAO DIỆN & TƯƠNG TÁC DOM (CHẠY TRÊN TREEMVIETNAM.NET.VN)
+    // =========================================================================================
 
     /**
      * Hiển thị bảng điều khiển / thông báo trạng thái trực quan dạng HUD (Heads-Up Display)
@@ -398,9 +517,20 @@
     }
 
     /**
+     * =========================================================================================
      * ĐIỂM KHỞI CHẠY (ENTRY POINT) CỦA SCRIPT
+     * =========================================================================================
      */
     function init() {
+        const currentHostname = window.location.hostname;
+
+        // [NHÁNH A]: Nếu đang ở cửa sổ đăng nhập Google OAuth (accounts.google.com)
+        if (currentHostname.includes('google.com')) {
+            handleGoogleOAuthChooser();
+            return; // Dừng lại ở đây, không khởi tạo logic vote của treemvietnam
+        }
+
+        // [NHÁNH B]: Nếu đang ở cổng bình chọn treemvietnam.net.vn
         // Bước 1: Dọn dẹp dữ liệu phiên cũ để đảm bảo môi trường sạch
         clearSiteData();
 

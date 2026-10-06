@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Tampermonkey%20%7C%20Violentmonkey-blue.svg)](https://www.tampermonkey.net/)
 [![Language](https://img.shields.io/badge/Language-JavaScript%20ES6+-F7DF1E.svg?logo=javascript&logoColor=black)](#)
-[![Version](https://img.shields.io/badge/Version-4.2.0-green.svg)](#)
+[![Version](https://img.shields.io/badge/Version-4.3.0-green.svg)](#)
 [![Author](https://img.shields.io/badge/Author-thang1834-orange.svg?logo=github)](https://github.com/thang1834)
 
 ---
@@ -58,6 +58,7 @@ Mã nguồn dự án này được viết ra nhằm mục đích **giáo dục, 
 - ⭐ **Tự động tích chọn 5 sao toàn diện**: Sử dụng cơ chế tương tác 2 tầng (vừa gọi hàm `$.fn.barrating` gốc vừa dispatch DOM event dự phòng) để đảm bảo toàn bộ tiêu chí đều đạt điểm tối đa mà không bị sót.
 - 🛡️ **Nhận diện trạng thái Cloudflare Turnstile thông minh**: Script tự động lắng nghe input token ẩn `#captcha1` và `#captcha2`. Ngay khi người dùng tick xanh Captcha thành công, script sẽ tự động kích hoạt bước kế tiếp.
 - 🔐 **Hỗ trợ quy trình Đăng nhập Google**: Tự động nhận diện modal yêu cầu đăng nhập và click nút đăng nhập sau khi hoàn tất Captcha xác thực tài khoản.
+- 🔑 **Tự động chọn tài khoản Google OAuth**: Tự động nhận diện và click chọn tài khoản Google trong cửa sổ popup (tích hợp cơ chế bảo mật lọc domain nghiêm ngặt, chỉ can thiệp luồng đăng nhập của cuộc thi).
 - 📊 **Thanh trạng thái HUD trực quan**: Hiển thị bảng nổi Dark Glassmorphism ở góc màn hình cung cấp thông tin thời gian thực về tiến trình (đang chờ Captcha, đang tích 5 sao, đang nộp...).
 - 🧹 **Tự động dọn dẹp dữ liệu phiên**: Tự động giải phóng toàn bộ Cache, LocalStorage, SessionStorage và Cookie khi tải trang.
 - 🔄 **Tự động F5 làm mới**: Sau khi gửi phiếu thành công, trang sẽ tự động tải lại để người dùng sẵn sàng cho các thao tác tiếp theo.
@@ -160,15 +161,18 @@ Bạn có thể chỉnh sửa đối tượng `CONFIG` ngay ở đầu file **[`
 
 ```javascript
 const CONFIG = {
-    AUTO_CLEAR_SITE_DATA: true,      // Tự động xóa Cookie, LocalStorage khi vào trang
-    AUTO_OPEN_POPUP: true,           // Tự động ấn mở popup khi vào trang
-    AUTO_LOGIN_GOOGLE: true,         // Tự động ấn nút Đăng nhập sau khi tick Captcha
-    AUTO_SUBMIT_AFTER_CAPTCHA: true, // Tự động gửi phiếu sau khi Captcha vote hoàn tất
-    AUTO_REFRESH_AFTER_VOTE: true,   // Tự động F5 trang sau khi bình chọn xong
-    DELAY_OPEN_MS: 1200,             // Độ trễ (ms) trước khi mở popup
-    DELAY_SUBMIT_VOTE_MS: 2000,      // Thời gian chờ (ms) sau Captcha để nộp phiếu
-    DELAY_REFRESH_MS: 1500,          // Thời gian trễ (ms) sau nộp trước khi tải lại trang
-    WATCHER_INTERVAL_MS: 350         // Tần suất quét trạng thái DOM (ms)
+    AUTO_CLEAR_SITE_DATA: true,           // Tự động xóa Cookie, LocalStorage khi vào trang
+    AUTO_OPEN_POPUP: true,                // Tự động ấn mở popup khi vào trang
+    AUTO_LOGIN_GOOGLE: true,              // Tự động ấn nút Đăng nhập sau khi tick Captcha
+    AUTO_SELECT_GOOGLE_ACCOUNT: true,     // Tự động click chọn tài khoản Google OAuth
+    TARGET_GOOGLE_ACCOUNT_EMAIL: '',      // Email chỉ định (để trống = chọn tài khoản đầu tiên)
+    AUTO_SUBMIT_AFTER_CAPTCHA: true,      // Tự động gửi phiếu sau khi Captcha vote hoàn tất
+    AUTO_REFRESH_AFTER_VOTE: true,        // Tự động F5 trang sau khi bình chọn xong
+    DELAY_OPEN_MS: 1200,                  // Độ trễ (ms) trước khi mở popup
+    DELAY_SELECT_GOOGLE_ACCOUNT_MS: 500,  // Chờ hiển thị danh sách tài khoản Google (ms)
+    DELAY_SUBMIT_VOTE_MS: 2000,           // Thời gian chờ (ms) sau Captcha để nộp phiếu
+    DELAY_REFRESH_MS: 1500,               // Thời gian trễ (ms) sau nộp trước khi tải lại trang
+    WATCHER_INTERVAL_MS: 350              // Tần suất quét trạng thái DOM (ms)
 };
 ```
 
