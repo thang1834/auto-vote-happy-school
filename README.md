@@ -171,7 +171,7 @@ const CONFIG = {
     DELAY_OPEN_MS: 1200,                  // Độ trễ (ms) trước khi mở popup
     DELAY_SELECT_GOOGLE_ACCOUNT_MS: 500,  // Chờ hiển thị danh sách tài khoản Google (ms)
     DELAY_SUBMIT_VOTE_MS: 2000,           // Thời gian chờ (ms) sau Captcha để nộp phiếu
-    DELAY_REFRESH_MS: 1500,               // Thời gian trễ (ms) sau nộp trước khi tải lại trang
+    DELAY_REFRESH_MS: 10000,              // Thời gian chờ server xử lý (10s) trước khi tải lại trang
     WATCHER_INTERVAL_MS: 350              // Tần suất quét trạng thái DOM (ms)
 };
 ```

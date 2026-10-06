@@ -69,8 +69,8 @@
         // [10] Thời gian chờ an toàn (ms) sau khi Captcha vote tick xanh để hệ thống backend đồng bộ token trước khi submit
         DELAY_SUBMIT_VOTE_MS: 2000,
 
-        // [11] Thời gian trễ (ms) sau khi popup nộp thành công trước khi tiến hành reload lại trang
-        DELAY_REFRESH_MS: 1500,
+        // [11] Thời gian trễ (ms) sau khi popup nộp thành công để chờ server xử lý xong trước khi reload
+        DELAY_REFRESH_MS: 10000,
 
         // [12] Chu kỳ quét trạng thái của Master Watcher (ms)
         WATCHER_INTERVAL_MS: 350
@@ -487,18 +487,24 @@
                                 setStatus('🚀 Đang gửi bình chọn...', '#28a745');
                                 confirmVoteBtn.click();
 
-                                // Sau khi gửi, hiển thị thông báo thành công và tiến hành tải lại trang
-                                setTimeout(() => {
-                                    setStatus('🎉 <b>Đã gửi bình chọn thành công!</b>', '#28a745');
+                                // Sau khi gửi, chờ máy chủ xử lý dữ liệu và đếm ngược trước khi reload
+                                if (CONFIG.AUTO_REFRESH_AFTER_VOTE) {
+                                    let remainSec = Math.round(CONFIG.DELAY_REFRESH_MS / 1000);
+                                    setStatus(`🎉 <b>Đã gửi phiếu bình chọn!</b><br>⏳ Đang chờ máy chủ ghi nhận... Tải lại sau <b>${remainSec}s</b>`, '#17a2b8');
 
-                                    if (CONFIG.AUTO_REFRESH_AFTER_VOTE) {
-                                        setTimeout(() => {
-                                            setStatus('🔄 Đang tải lại trang...', '#17a2b8');
+                                    const countdownTimer = setInterval(() => {
+                                        remainSec--;
+                                        if (remainSec > 0) {
+                                            setStatus(`🎉 <b>Đã gửi phiếu bình chọn!</b><br>⏳ Đang chờ máy chủ ghi nhận... Tải lại sau <b>${remainSec}s</b>`, '#17a2b8');
+                                        } else {
+                                            clearInterval(countdownTimer);
+                                            setStatus('🔄 <b>Đang tải lại trang...</b>', '#17a2b8');
                                             window.location.reload();
-                                        }, CONFIG.DELAY_REFRESH_MS);
-                                    }
-
-                                }, 500);
+                                        }
+                                    }, 1000);
+                                } else {
+                                    setStatus('🎉 <b>Đã gửi bình chọn thành công!</b>', '#28a745');
+                                }
                             }, CONFIG.DELAY_SUBMIT_VOTE_MS);
                         }
                     }
